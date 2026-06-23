@@ -1,0 +1,210 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": { "type": "string", "defaultValue": "East US" },
+    "vmAdminUsername": { "type": "string" },
+    "vmAdminPassword": { "type": "securestring" }
+  },
+  "variables": {
+    "vnetName": "SmartHotelVNet",
+    "subnetFrontend": "FrontendSubnet",
+    "subnetBackend": "BackendSubnet",
+    "subnetDB": "DBSubnet",
+    "appGatewayName": "SmartHotel-WAF",
+    "bastionName": "SmartHotelBastion",
+    "logAnalyticsName": "SmartHotelLA",
+    "publicIPGateway": "SmartHotel-WAF-ip",
+    "publicIPBastion": "SmartHotelBastion-ip",
+    "web1Name": "smarthotelweb1",
+    "web2Name": "smarthotelweb2",
+    "ubuntuName": "UbuntuWAF",
+    "dbName": "smarthotelSQL1",
+    "sqlServerName": "smarthotelsqlggjxc",
+    "sqlDbName": "smarthoteldb"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Network/virtualNetworks",
+      "apiVersion": "2023-05-01",
+      "name": "[variables('vnetName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "addressSpace": { "addressPrefixes": ["10.0.0.0/16"] },
+        "subnets": [
+          { "name": "[variables('subnetFrontend')]", "properties": { "addressPrefix": "10.0.1.0/24" } },
+          { "name": "[variables('subnetBackend')]", "properties": { "addressPrefix": "10.0.2.0/24" } },
+          { "name": "[variables('subnetDB')]", "properties": { "addressPrefix": "10.0.3.0/24" } }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/publicIPAddresses",
+      "apiVersion": "2023-05-01",
+      "name": "[variables('publicIPGateway')]",
+      "location": "[parameters('location')]",
+      "properties": { "publicIPAllocationMethod": "Dynamic" }
+    },
+    {
+      "type": "Microsoft.Network/publicIPAddresses",
+      "apiVersion": "2023-05-01",
+      "name": "[variables('publicIPBastion')]",
+      "location": "[parameters('location')]",
+      "properties": { "publicIPAllocationMethod": "Dynamic" }
+    },
+    {
+      "type": "Microsoft.Network/applicationGateways",
+      "apiVersion": "2023-05-01",
+      "name": "[variables('appGatewayName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "sku": { "name": "Standard_v2", "tier": "Standard_v2", "capacity": 2 },
+        "gatewayIPConfigurations": [
+          {
+            "name": "appGatewayIpConfig",
+            "properties": {
+              "subnet": {
+                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), variables('subnetFrontend'))]"
+              }
+            }
+          }
+        ],
+        "frontendIPConfigurations": [
+          {
+            "name": "appGatewayFrontendIP",
+            "properties": {
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIPGateway'))]"
+              }
+            }
+          }
+        ],
+        "backendAddressPools": [
+          { "name": "webBackendPool" }
+        ],
+        "frontendPorts": [
+          { "name": "httpPort", "properties": { "port": 80 } }
+        ],
+        "listeners": [
+          {
+            "name": "httpListener",
+            "properties": {
+              "frontendIPConfiguration": { "id": "[concat(resourceId('Microsoft.Network/applicationGateways', variables('appGatewayName')), '/frontendIPConfigurations/appGatewayFrontendIP')]" },
+              "frontendPort": { "id": "[concat(resourceId('Microsoft.Network/applicationGateways', variables('appGatewayName')), '/frontendPorts/httpPort')]" },
+              "protocol": "Http"
+            }
+          }
+        ],
+        "requestRoutingRules": [
+          {
+            "name": "rule1",
+            "properties": {
+              "ruleType": "Basic",
+              "httpListener": { "id": "[concat(resourceId('Microsoft.Network/applicationGateways', variables('appGatewayName')), '/listeners/httpListener')]" },
+              "backendAddressPool": { "id": "[concat(resourceId('Microsoft.Network/applicationGateways', variables('appGatewayName')), '/backendAddressPools/webBackendPool')]" }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/bastionHosts",
+      "apiVersion": "2023-05-01",
+      "name": "[variables('bastionName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "bastionIpConfig",
+            "properties": {
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIPBastion'))]"
+              },
+              "subnet": {
+                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), 'AzureBastionSubnet')]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.OperationalInsights/workspaces",
+      "apiVersion": "2023-05-01-preview",
+      "name": "[variables('logAnalyticsName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "sku": { "name": "PerGB2018" },
+        "retentionInDays": 30
+      }
+    },
+    {
+      "type": "Microsoft.Sql/servers",
+      "apiVersion": "2023-05-01-preview",
+      "name": "[variables('sqlServerName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "administratorLogin": "[parameters('vmAdminUsername')]",
+        "administratorLoginPassword": "[parameters('vmAdminPassword')]"
+      }
+    },
+    {
+      "type": "Microsoft.Sql/servers/databases",
+      "apiVersion": "2023-05-01-preview",
+      "name": "[concat(variables('sqlServerName'), '/', variables('sqlDbName'))]",
+      "location": "[parameters('location')]",
+      "properties": { "collation": "SQL_Latin1_General_CP1_CI_AS", "maxSizeBytes": "2147483648" }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines",
+      "apiVersion": "2023-03-01",
+      "name": "[variables('web1Name')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "hardwareProfile": { "vmSize": "Standard_B2s" },
+        "osProfile": {
+          "computerName": "[variables('web1Name')]",
+          "adminUsername": "[parameters('vmAdminUsername')]",
+          "adminPassword": "[parameters('vmAdminPassword')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "MicrosoftWindowsServer",
+            "offer": "WindowsServer",
+            "sku": "2012-R2-Datacenter",
+            "version": "latest"
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines",
+      "apiVersion": "2023-03-01",
+      "name": "[variables('web2Name')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "hardwareProfile": { "vmSize": "Standard_B2s" },
+        "osProfile": {
+          "computerName": "[variables('web2Name')]",
+          "adminUsername": "[parameters('vmAdminUsername')]",
+          "adminPassword": "[parameters('vmAdminPassword')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "MicrosoftWindowsServer",
+            "offer": "WindowsServer",
+            "sku": "2012-R2-Datacenter",
+            "version": "latest"
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines",
+      "apiVersion": "2023-03-01",
+      "name": "[variables('ubuntuName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "hardwareProfile": { "vmSize": "Standard_B2s" },
+        "osProfile": {
+          "computerName": "[variables('ubuntu
