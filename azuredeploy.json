@@ -1,198 +1,218 @@
 {
-    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
-    "contentVersion": "1.0.0.0",
-    "parameters": {
-        "location": {
-            "defaultValue": "East US",
-            "type": "String"
-        },
-        "vmAdminUsername": {
-            "type": "String"
-        },
-        "vmAdminPassword": {
-            "type": "SecureString"
-        }
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "adminUsername": {
+      "type": "string",
+      "metadata": {
+        "description": "Administrator username"
+      }
     },
-    "variables": {
-        "vnetName": "SmartHotelVNet",
-        "subnetFrontend": "FrontendSubnet",
-        "subnetBackend": "BackendSubnet",
-        "subnetDB": "DBSubnet",
-        "appGatewayName": "SmartHotel-WAF",
-        "bastionName": "SmartHotelBastion",
-        "logAnalyticsName": "SmartHotelLA",
-        "publicIPGateway": "SmartHotel-WAF-ip",
-        "publicIPBastion": "SmartHotelBastion-ip",
-        "web1Name": "smarthotelweb1",
-        "web2Name": "smarthotelweb2",
-        "ubuntuName": "UbuntuWAF",
-        "dbName": "smarthotelSQL1",
-        "sqlServerName": "smarthotelsqlggjxc",
-        "sqlDbName": "smarthoteldb"
-    },
-    "resources": [
-        {
-            "type": "Microsoft.Network/virtualNetworks",
-            "apiVersion": "2023-05-01",
-            "name": "[variables('vnetName')]",
-            "location": "[parameters('location')]",
-            "properties": {
-                "addressSpace": {
-                    "addressPrefixes": [
-                        "10.0.0.0/16"
-                    ]
-                },
-                "subnets": [
-                    {
-                        "name": "[variables('subnetFrontend')]",
-                        "properties": {
-                            "addressPrefix": "10.0.1.0/24"
-                        }
-                    },
-                    {
-                        "name": "[variables('subnetBackend')]",
-                        "properties": {
-                            "addressPrefix": "10.0.2.0/24"
-                        }
-                    },
-                    {
-                        "name": "[variables('subnetDB')]",
-                        "properties": {
-                            "addressPrefix": "10.0.3.0/24"
-                        }
-                    }
-                ]
-            }
-        },
-        {
-            "type": "Microsoft.Network/publicIPAddresses",
-            "apiVersion": "2023-05-01",
-            "name": "[variables('publicIPGateway')]",
-            "location": "[parameters('location')]",
-            "properties": {
-                "publicIPAllocationMethod": "Dynamic"
-            }
-        },
-        {
-            "type": "Microsoft.Network/publicIPAddresses",
-            "apiVersion": "2023-05-01",
-            "name": "[variables('publicIPBastion')]",
-            "location": "[parameters('location')]",
-            "properties": {
-                "publicIPAllocationMethod": "Dynamic"
-            }
-        },
-        {
-            "type": "Microsoft.OperationalInsights/workspaces",
-            "apiVersion": "2023-05-01-preview",
-            "name": "[variables('logAnalyticsName')]",
-            "location": "[parameters('location')]",
-            "properties": {
-                "sku": {
-                    "name": "PerGB2018"
-                },
-                "retentionInDays": 30
-            }
-        },
-        {
-            "type": "Microsoft.Sql/servers",
-            "apiVersion": "2023-05-01-preview",
-            "name": "[variables('sqlServerName')]",
-            "location": "[parameters('location')]",
-            "properties": {
-                "administratorLogin": "[parameters('vmAdminUsername')]",
-                "administratorLoginPassword": "[parameters('vmAdminPassword')]"
-            }
-        },
-        {
-            "type": "Microsoft.Sql/servers/databases",
-            "apiVersion": "2023-05-01-preview",
-            "name": "[concat(variables('sqlServerName'), '/', variables('sqlDbName'))]",
-            "location": "[parameters('location')]",
-            "properties": {
-                "collation": "SQL_Latin1_General_CP1_CI_AS",
-                "maxSizeBytes": "2147483648"
-            }
-        },
-        {
-            "type": "Microsoft.Compute/virtualMachines",
-            "apiVersion": "2023-03-01",
-            "name": "[variables('web1Name')]",
-            "location": "[parameters('location')]",
-            "properties": {
-                "hardwareProfile": {
-                    "vmSize": "Standard_B1s"
-                },
-                "osProfile": {
-                    "computerName": "[variables('web1Name')]",
-                    "adminUsername": "[parameters('vmAdminUsername')]",
-                    "adminPassword": "[parameters('vmAdminPassword')]"
-                },
-                "storageProfile": {
-                    "imageReference": {
-                        "publisher": "MicrosoftWindowsServer",
-                        "offer": "WindowsServer",
-                        "sku": "2022-datacenter",
-                        "version": "latest"
-                    }
-                }
-            }
-        },
-        {
-            "type": "Microsoft.Compute/virtualMachines",
-            "apiVersion": "2023-03-01",
-            "name": "[variables('web2Name')]",
-            "location": "[parameters('location')]",
-            "properties": {
-                "hardwareProfile": {
-                    "vmSize": "Standard_B1s"
-                },
-                "osProfile": {
-                    "computerName": "[variables('web2Name')]",
-                    "adminUsername": "[parameters('vmAdminUsername')]",
-                    "adminPassword": "[parameters('vmAdminPassword')]"
-                },
-                "storageProfile": {
-                    "imageReference": {
-                        "publisher": "MicrosoftWindowsServer",
-                        "offer": "WindowsServer",
-                        "sku": "2022-datacenter",
-                        "version": "latest"
-                    }
-                }
-            }
-        },
-        {
-            "type": "Microsoft.Compute/virtualMachines",
-            "apiVersion": "2023-03-01",
-            "name": "[variables('ubuntuName')]",
-            "location": "[parameters('location')]",
-            "properties": {
-                "hardwareProfile": {
-                    "vmSize": "Standard_B1s"
-                },
-                "osProfile": {
-                    "computerName": "[variables('ubuntuName')]",
-                    "adminUsername": "[parameters('vmAdminUsername')]",
-                    "adminPassword": "[parameters('vmAdminPassword')]"
-                },
-                "storageProfile": {
-                    "imageReference": {
-                      "publisher": "Canonical",
-                      "offer": "0001-com-ubuntu-server-jammy",
-                      "sku": "22_04-lts",
-                      "version": "latest"
-                }
+    "adminPassword": {
+      "type": "secureString",
+      "metadata": {
+        "description": "Administrator password"
+      }
+    }
+  },
+  "variables": {
+    "location": "[resourceGroup().location]",
 
-                },
-                "networkProfile": {
-                    "networkInterfaces": [
-                        {
-                            "id": "[resourceId('Microsoft.Network/networkInterfaces', concat(variables('ubuntuName'), '-nic'))]"
-                        }
-                    ]
-                }
+    "vmName": "SmartHotelHost",
+
+    "vnetName": "smarthotelhostvnet",
+    "vnetAddressSpace": "10.10.0.0/16",
+    "subnetName": "default",
+    "subnetPrefix": "10.10.1.0/24",
+
+    "dmsVnetName": "DMSvnet",
+    "dmsAddressSpace": "10.20.0.0/16",
+    "dmsSubnetName": "default",
+    "dmsSubnetPrefix": "10.20.1.0/24",
+
+    "nicName": "smarthotelhostnic",
+    "pipName": "smarthotelhostip",
+    "nsgName": "smarthotelhostnsg",
+
+    "dataDiskName": "SmartHotelHost_DataDisk"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Network/publicIPAddresses",
+      "apiVersion": "2023-09-01",
+      "name": "[variables('pipName')]",
+      "location": "[variables('location')]",
+      "sku": {
+        "name": "Standard"
+      },
+      "properties": {
+        "publicIPAllocationMethod": "Static"
+      }
+    },
+    {
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "apiVersion": "2023-09-01",
+      "name": "[variables('nsgName')]",
+      "location": "[variables('location')]",
+      "properties": {
+        "securityRules": [
+          {
+            "name": "Allow-RDP",
+            "properties": {
+              "priority": 1000,
+              "protocol": "Tcp",
+              "access": "Allow",
+              "direction": "Inbound",
+              "sourceAddressPrefix": "*",
+              "sourcePortRange": "*",
+              "destinationAddressPrefix": "*",
+              "destinationPortRange": "3389"
             }
+          },
+          {
+            "name": "Allow-HTTP",
+            "properties": {
+              "priority": 1010,
+              "protocol": "Tcp",
+              "access": "Allow",
+              "direction": "Inbound",
+              "sourceAddressPrefix": "*",
+              "sourcePortRange": "*",
+              "destinationAddressPrefix": "*",
+              "destinationPortRange": "80"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/virtualNetworks",
+      "apiVersion": "2023-09-01",
+      "name": "[variables('vnetName')]",
+      "location": "[variables('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkSecurityGroups', variables('nsgName'))]"
+      ],
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "[variables('vnetAddressSpace')]"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "[variables('subnetName')]",
+            "properties": {
+              "addressPrefix": "[variables('subnetPrefix')]",
+              "networkSecurityGroup": {
+                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('nsgName'))]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/virtualNetworks",
+      "apiVersion": "2023-09-01",
+      "name": "[variables('dmsVnetName')]",
+      "location": "[variables('location')]",
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "[variables('dmsAddressSpace')]"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "[variables('dmsSubnetName')]",
+            "properties": {
+              "addressPrefix": "[variables('dmsSubnetPrefix')]"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/networkInterfaces",
+      "apiVersion": "2023-09-01",
+      "name": "[variables('nicName')]",
+      "location": "[variables('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/publicIPAddresses', variables('pipName'))]",
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName'))]"
+      ],
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('pipName'))]"
+              },
+              "subnet": {
+                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), variables('subnetName'))]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines",
+      "apiVersion": "2023-09-01",
+      "name": "[variables('vmName')]",
+      "location": "[variables('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkInterfaces', variables('nicName'))]"
+      ],
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "Standard_D2s_v5"
+        },
+        "osProfile": {
+          "computerName": "SmartHotelHost",
+          "adminUsername": "[parameters('adminUsername')]",
+          "adminPassword": "[parameters('adminPassword')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "MicrosoftWindowsServer",
+            "offer": "WindowsServer",
+            "sku": "2022-datacenter",
+            "version": "latest"
+          },
+          "osDisk": {
+            "createOption": "FromImage"
+          },
+          "dataDisks": [
+            {
+              "lun": 0,
+              "name": "[variables('dataDiskName')]",
+              "createOption": "Empty",
+              "diskSizeGB": 32
+            }
+          ]
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('nicName'))]"
+            }
+          ]
         }
-    ]
+      }
+    }
+  ],
+  "outputs": {
+    "vmName": {
+      "type": "string",
+      "value": "[variables('vmName')]"
+    },
+    "publicIPAddressName": {
+      "type": "string",
+      "value": "[variables('pipName')]"
+    }
+  }
 }
